@@ -17,6 +17,7 @@ ENV/
 # Data files (if large)
 *.csv
 !lab2/data/winequality-red.csv
+!dataset/winequality-red.csv
 
 # IDE
 .vscode/
