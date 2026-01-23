@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -23,7 +23,7 @@ jobs:
         run: python train.py
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: model-artifacts
           path: |
@@ -33,40 +33,42 @@ jobs:
   deploy:
     needs: train
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: model-artifacts
 
       - name: Compare metrics
         id: compare
         run: |
-          CUR_MSE=$(jq '.mse' scripts/metrics.json)
-          BEST_MSE=${{ vars.BEST_MSE }}
+          # Install jq if not available
+          sudo apt-get update && sudo apt-get install -y jq bc || true
           
-          # If BEST_MSE is empty, set to a high value to allow first deployment
-          if [ -z "$BEST_MSE" ] || [ "$BEST_MSE" == "" ]; then
-            BEST_MSE=999999
+          CUR_R2=$(jq -r '.r2' scripts/metrics.json)
+          BEST_R2=${{ vars.BEST_R2 }}
+          
+          # If BEST_R2 is empty or 0, set it to 0 for comparison
+          if [ -z "$BEST_R2" ] || [ "$BEST_R2" == "" ]; then
+            BEST_R2="0.0"
           fi
           
-          if (( $(echo "$CUR_MSE < $BEST_MSE" | bc -l) )); then
+          echo "Current R2: $CUR_R2"
+          echo "Best R2: $BEST_R2"
+          
+          # Compare: R2 higher is better (use bc for float comparison)
+          if (( $(echo "$CUR_R2 > $BEST_R2" | bc -l) )); then
+            echo "✅ Metric improved! Deploying..."
             echo "deploy=true" >> $GITHUB_OUTPUT
-            echo "✅ New model is better! MSE: $CUR_MSE < $BEST_MSE"
           else
-            echo "${{ github.actor }} ---- Metric did not improve"
+            echo "${{ github.actor }} ---- Metric did not improve (Current: $CUR_R2, Best: $BEST_R2)"
             echo "deploy=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Prepare model for Docker
-        if: steps.compare.outputs.deploy == 'true'
-        run: |
-          mkdir -p model
-          cp scripts/model.pkl model/model.pkl
-          ls -la model/
 
       - name: Login to DockerHub
         if: steps.compare.outputs.deploy == 'true'
@@ -75,12 +77,26 @@ jobs:
       - name: Build and Push Docker Image
         if: steps.compare.outputs.deploy == 'true'
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wine-api:${{ github.sha }} .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wine-api:${{ github.sha }}
+          # Prepare model file for Docker
+          mkdir -p model
+          cp scripts/model.pkl model/model.pkl
+          
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:${{ github.sha }} .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:${{ github.sha }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:latest
 
-      - name: Update Best MSE
+      - name: Update Best R2
         if: steps.compare.outputs.deploy == 'true'
         run: |
-          gh variable set BEST_MSE -b "$(jq '.mse' scripts/metrics.json)"
+          # Install gh CLI if not available
+          type -p curl >/dev/null || (apt-get update && apt-get install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          apt-get update && apt-get install gh -y || true
+          
+          NEW_R2=$(jq -r '.r2' scripts/metrics.json)
+          gh variable set BEST_R2 -b "$NEW_R2" --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
