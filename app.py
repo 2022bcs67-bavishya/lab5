@@ -77,5 +77,7 @@ def predict_quality(data: WineInput):
     ]])
     prediction = model.predict(features)[0]
     return {
-        "predicted_quality": round(float(prediction), 2)
+        "name": "Bavishya S",
+        "roll_no": "2022BCS0067",
+        "wine_quality": int(round(float(prediction)))
     }
