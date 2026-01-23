@@ -5,11 +5,11 @@ This guide will help you configure the required GitHub repository secrets and va
 ## Required Secrets
 
 ### 1. Docker Hub Username
-- **Secret Name:** `DOCKER_HUB_USERNAME`
-- **Value:** `2022bcs0067` (or `2022BCS0067` - your Docker Hub username)
+- **Secret Name:** `DOCKERHUB_USERNAME` ⚠️ (Note: No underscores)
+- **Value:** `2022bcs0067` (your Docker Hub username)
 
 ### 2. Docker Hub Access Token
-- **Secret Name:** `DOCKER_HUB_TOKEN`
+- **Secret Name:** `DOCKERHUB_TOKEN` ⚠️ (Note: No underscores)
 - **How to get it:**
   1. Go to https://hub.docker.com/settings/security
   2. Click "New Access Token"
@@ -19,7 +19,7 @@ This guide will help you configure the required GitHub repository secrets and va
   6. Use this token as the value
 
 ### 3. GitHub Personal Access Token
-- **Secret Name:** `GITHUB_TOKEN` (or `GH_PAT`)
+- **Secret Name:** `GH_PAT` ⚠️ (Lab 4 requirement)
 - **How to get it:**
   1. Go to https://github.com/settings/tokens
   2. Click "Generate new token" → "Generate new token (classic)"
@@ -74,9 +74,9 @@ This guide will help you configure the required GitHub repository secrets and va
 ## Summary of What to Add
 
 ### Secrets (click "New repository secret"):
-- `DOCKER_HUB_USERNAME` = `2022bcs0067`
-- `DOCKER_HUB_TOKEN` = (your Docker Hub access token)
-- `GITHUB_TOKEN` = (your GitHub Personal Access Token)
+- `DOCKERHUB_USERNAME` = `2022bcs0067` ⚠️ (No underscores)
+- `DOCKERHUB_TOKEN` = (your Docker Hub access token) ⚠️ (No underscores)
+- `GH_PAT` = (your GitHub Personal Access Token) ⚠️ (Lab 4 requirement)
 
 ### Variables (click "Variables" tab → "New repository variable"):
 - `BEST_F1_SCORE` = `0.0`
@@ -93,9 +93,9 @@ After adding all secrets and variables, you should see:
 These will be used in your GitHub Actions workflows like:
 ```yaml
 env:
-  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  GH_PAT: ${{ secrets.GH_PAT }}
   BEST_R2_SCORE: ${{ vars.BEST_R2_SCORE }}
   BEST_F1_SCORE: ${{ vars.BEST_F1_SCORE }}
 ```
