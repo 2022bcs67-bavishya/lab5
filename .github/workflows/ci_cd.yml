@@ -1,105 +1,86 @@
-name: CI/CD Pipeline
+name: Lab 4 CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
-
-env:
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  IMAGE_NAME: wine-quality-api
+    branches: [ main ]
 
 jobs:
   train:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Run training script
-      working-directory: scripts
-      run: python train.py
+      - name: Train model
+        working-directory: scripts
+        run: python train.py
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: model-artifacts
-        path: |
-          scripts/model.pkl
-          scripts/metrics.json
-        retention-days: 30
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-artifacts
+          path: |
+            scripts/model.pkl
+            scripts/metrics.json
 
-  build-and-push:
+  deploy:
     needs: train
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Download training artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: model-artifacts
-        path: artifacts/
+      - uses: actions/checkout@v3
 
-    - name: Prepare model file
-      run: |
-        mkdir -p model
-        # Copy model from artifacts
-        if [ -f "artifacts/scripts/model.pkl" ]; then
-          cp artifacts/scripts/model.pkl model/model.pkl
-        elif [ -f "scripts/model.pkl" ]; then
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+
+      - name: Compare metrics
+        id: compare
+        run: |
+          CUR_MSE=$(jq '.mse' scripts/metrics.json)
+          BEST_MSE=${{ vars.BEST_MSE }}
+          
+          # If BEST_MSE is empty, set to a high value to allow first deployment
+          if [ -z "$BEST_MSE" ] || [ "$BEST_MSE" == "" ]; then
+            BEST_MSE=999999
+          fi
+          
+          if (( $(echo "$CUR_MSE < $BEST_MSE" | bc -l) )); then
+            echo "deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ New model is better! MSE: $CUR_MSE < $BEST_MSE"
+          else
+            echo "${{ github.actor }} ---- Metric did not improve"
+            echo "deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare model for Docker
+        if: steps.compare.outputs.deploy == 'true'
+        run: |
+          mkdir -p model
           cp scripts/model.pkl model/model.pkl
-        elif [ -f "model/model.pkl" ]; then
-          echo "Model file already exists"
-        else
-          echo "Warning: No model file found. Docker build may fail."
-        fi
-        ls -la model/
+          ls -la model/
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Login to DockerHub
+        if: steps.compare.outputs.deploy == 'true'
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and Push Docker Image
+        if: steps.compare.outputs.deploy == 'true'
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wine-api:${{ github.sha }} .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wine-api:${{ github.sha }}
 
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-
-    - name: Image digest
-      run: echo ${{ steps.meta.outputs.digest }}
+      - name: Update Best MSE
+        if: steps.compare.outputs.deploy == 'true'
+        run: |
+          gh variable set BEST_MSE -b "$(jq '.mse' scripts/metrics.json)"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
