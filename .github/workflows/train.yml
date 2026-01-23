@@ -1,0 +1,67 @@
+name: ML Training Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - experiment_name: "Experiment 1"
+            model_type: "random_forest"
+            n_estimators: "50"
+            max_depth: "10"
+            test_size: "0.2"
+            alpha: "1.0"
+          - experiment_name: "Experiment 2"
+            model_type: "ridge"
+            n_estimators: "100"
+            max_depth: "15"
+            test_size: "0.3"
+            alpha: "1.0"
+          - experiment_name: "Experiment 3"
+            model_type: "random_forest"
+            n_estimators: "100"
+            max_depth: "15"
+            test_size: "0.3"
+            alpha: "1.0"
+          - experiment_name: "Experiment 4"
+            model_type: "random_forest"
+            n_estimators: "200"
+            max_depth: "20"
+            test_size: "0.3"
+            alpha: "1.0"
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run training script
+      env:
+        EXPERIMENT_NAME: ${{ matrix.experiment_name }}
+        MODEL_TYPE: ${{ matrix.model_type }}
+        N_ESTIMATORS: ${{ matrix.n_estimators }}
+        MAX_DEPTH: ${{ matrix.max_depth }}
+        TEST_SIZE: ${{ matrix.test_size }}
+        ALPHA: ${{ matrix.alpha }}
+      run: python train.py
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: artifacts-${{ matrix.experiment_name }}
+        path: outputs/
+        retention-days: 30

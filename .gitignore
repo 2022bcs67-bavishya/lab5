@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Model files (keep structure but ignore large files)
+*.pkl
+*.h5
+*.joblib
+
+# Data files (if large)
+*.csv
+!lab2/data/winequality-red.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs (will be generated)
+lab2/outputs/*
+!lab2/outputs/.gitkeep
+model/*
+!model/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
