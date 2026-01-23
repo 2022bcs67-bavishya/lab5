@@ -43,24 +43,34 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: model-artifacts
+          path: .
 
       - name: Compare metrics
         id: compare
         run: |
-          # Install jq if not available
-          sudo apt-get update && sudo apt-get install -y jq bc || true
+          # Install jq and bc
+          sudo apt-get update
+          sudo apt-get install -y jq bc
           
-          # Find metrics.json (could be in scripts/ or root after download)
+          # Debug: Show directory structure
+          echo "=== Current directory structure ==="
+          ls -la
+          echo "=== scripts/ directory ==="
+          ls -la scripts/ || echo "scripts/ directory does not exist"
+          
+          # Find metrics.json (artifacts preserve directory structure)
           if [ -f "scripts/metrics.json" ]; then
             METRICS_FILE="scripts/metrics.json"
           elif [ -f "metrics.json" ]; then
             METRICS_FILE="metrics.json"
           else
             echo "Error: metrics.json not found!"
-            ls -la
-            ls -la scripts/ || true
+            find . -name "metrics.json" -type f
             exit 1
           fi
+          
+          echo "Using metrics file: $METRICS_FILE"
+          cat "$METRICS_FILE"
           
           CUR_R2=$(jq -r '.r2' "$METRICS_FILE")
           BEST_R2=${{ vars.BEST_R2 }}
@@ -109,13 +119,16 @@ jobs:
       - name: Update Best R2
         if: steps.compare.outputs.deploy == 'true'
         run: |
-          # Find metrics.json
+          # Find metrics.json (same logic as compare step)
           if [ -f "scripts/metrics.json" ]; then
             METRICS_FILE="scripts/metrics.json"
           else
             METRICS_FILE="metrics.json"
           fi
+          
           NEW_R2=$(jq -r '.r2' "$METRICS_FILE")
+          echo "Updating BEST_R2 to: $NEW_R2"
+          
           gh variable set BEST_R2 -b "$NEW_R2" --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
