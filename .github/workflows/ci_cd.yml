@@ -50,7 +50,19 @@ jobs:
           # Install jq if not available
           sudo apt-get update && sudo apt-get install -y jq bc || true
           
-          CUR_R2=$(jq -r '.r2' scripts/metrics.json)
+          # Find metrics.json (could be in scripts/ or root after download)
+          if [ -f "scripts/metrics.json" ]; then
+            METRICS_FILE="scripts/metrics.json"
+          elif [ -f "metrics.json" ]; then
+            METRICS_FILE="metrics.json"
+          else
+            echo "Error: metrics.json not found!"
+            ls -la
+            ls -la scripts/ || true
+            exit 1
+          fi
+          
+          CUR_R2=$(jq -r '.r2' "$METRICS_FILE")
           BEST_R2=${{ vars.BEST_R2 }}
           
           # If BEST_R2 is empty or 0, set it to 0 for comparison
@@ -79,7 +91,15 @@ jobs:
         run: |
           # Prepare model file for Docker
           mkdir -p model
-          cp scripts/model.pkl model/model.pkl
+          # Find model.pkl (could be in scripts/ or root after download)
+          if [ -f "scripts/model.pkl" ]; then
+            cp scripts/model.pkl model/model.pkl
+          elif [ -f "model.pkl" ]; then
+            cp model.pkl model/model.pkl
+          else
+            echo "Error: model.pkl not found!"
+            exit 1
+          fi
           
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:${{ github.sha }} .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/wine-quality-api:${{ github.sha }}
@@ -89,7 +109,13 @@ jobs:
       - name: Update Best R2
         if: steps.compare.outputs.deploy == 'true'
         run: |
-          NEW_R2=$(jq -r '.r2' scripts/metrics.json)
+          # Find metrics.json
+          if [ -f "scripts/metrics.json" ]; then
+            METRICS_FILE="scripts/metrics.json"
+          else
+            METRICS_FILE="metrics.json"
+          fi
+          NEW_R2=$(jq -r '.r2' "$METRICS_FILE")
           gh variable set BEST_R2 -b "$NEW_R2" --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
