@@ -33,6 +33,7 @@ lab2/outputs/*
 !lab2/outputs/.gitkeep
 model/*
 !model/.gitkeep
+!model/model.pkl
 
 # Jupyter
 .ipynb_checkpoints/

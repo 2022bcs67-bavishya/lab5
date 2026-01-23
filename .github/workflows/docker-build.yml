@@ -18,6 +18,20 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    
+    - name: Prepare model file
+      run: |
+        mkdir -p model
+        # Copy model from lab2/outputs if it exists, or use a placeholder
+        if [ -f "lab2/outputs/model.pkl" ]; then
+          cp lab2/outputs/model.pkl model/model.pkl
+        elif [ -f "model/model.pkl" ]; then
+          echo "Model file already exists"
+        else
+          echo "Warning: No model file found. Docker build may fail."
+          echo "Make sure training workflow runs first or model is committed."
+        fi
+        ls -la model/
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
