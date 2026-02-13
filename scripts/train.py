@@ -27,17 +27,23 @@ y_pred = model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
+import os
+
+# Create app/artifacts directory if it doesn't exist
+os.makedirs("app/artifacts", exist_ok=True)
+
 # Save model
-with open("model.pkl", "wb") as f:
+with open("app/artifacts/model.pkl", "wb") as f:
     pickle.dump(model, f)
 
-# Save metrics
+# Save metrics (using r2 as accuracy for comparison)
 metrics = {
     "mse": mse,
-    "r2": r2
+    "r2": r2,
+    "accuracy": r2  # Using r2 as accuracy for Jenkins comparison
 }
 
-with open("metrics.json", "w") as f:
+with open("app/artifacts/metrics.json", "w") as f:
     json.dump(metrics, f)
 
 print(metrics)
