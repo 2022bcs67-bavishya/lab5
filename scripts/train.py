@@ -5,9 +5,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
+import os
 
-# Load dataset
-data = pd.read_csv("dataset/winequality-red.csv", sep=";")
+# Load dataset (go up one level from scripts/ to root)
+data = pd.read_csv("../dataset/winequality-red.csv", sep=";")
 
 X = data.drop("quality", axis=1)
 y = data["quality"]
@@ -27,13 +28,11 @@ y_pred = model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
-import os
-
-# Create app/artifacts directory if it doesn't exist
-os.makedirs("app/artifacts", exist_ok=True)
+# Create app/artifacts directory if it doesn't exist (go up one level from scripts/ to root)
+os.makedirs("../app/artifacts", exist_ok=True)
 
 # Save model
-with open("app/artifacts/model.pkl", "wb") as f:
+with open("../app/artifacts/model.pkl", "wb") as f:
     pickle.dump(model, f)
 
 # Save metrics (using r2 as accuracy for comparison)
@@ -43,7 +42,7 @@ metrics = {
     "accuracy": r2  # Using r2 as accuracy for Jenkins comparison
 }
 
-with open("app/artifacts/metrics.json", "w") as f:
+with open("../app/artifacts/metrics.json", "w") as f:
     json.dump(metrics, f)
 
 print(metrics)
