@@ -5,7 +5,7 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         GIT_CREDENTIALS       = credentials('git-creds')
         BEST_ACCURACY         = credentials('best-accuracy')
-        DOCKERHUB_REPO        = '2022BCS0067/wine-quality-api'
+        DOCKERHUB_REPO        = '2022bcs00067/wine-quality-api'
     }
 
     stages {
